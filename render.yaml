@@ -1,9 +1,15 @@
-# Render Blueprint: the API and its database.
+# Render Blueprint: the API.
 #
 # The frontend is not here -- it is a static bundle on Vercel. Only the part
 # that needs a filesystem, a git binary and a database lives on Render.
 #
-# Apply this from the Render dashboard: New > Blueprint, pick this repository.
+# Neither is the database. Render allows one free Postgres per account and
+# that slot is already taken, so the database is a free Supabase project
+# (`repomap`, ap-southeast-1, same region as this service). DATABASE_URL is
+# marked `sync: false`: it carries a password, so Render prompts for it once
+# and stores it, rather than it living in this file.
+#
+# Apply from the Render dashboard: New > Blueprint, pick this repository.
 
 services:
   - type: web
@@ -18,13 +24,14 @@ services:
     healthCheckPath: /health
     autoDeploy: true
     envVars:
+      # Supabase's *session* pooler on port 5432, not the transaction pooler
+      # on 6543: SQLAlchemy holds a connection pool and psycopg prepares
+      # statements, neither of which survives transaction-level pooling.
+      #
+      # Supabase hands out a bare `postgresql://` URL; app/config.py rewrites
+      # it to name psycopg 3 explicitly. See Settings._use_psycopg3.
       - key: DATABASE_URL
-        fromDatabase:
-          name: repomap-db
-          property: connectionString
-
-      # Render hands out a bare `postgresql://` URL; app/config.py rewrites it
-      # to name psycopg 3 explicitly. See Settings._use_psycopg3.
+        sync: false
 
       # The browser origin allowed to call this API. A value that does not
       # match the deployed frontend exactly -- scheme included -- fails as an
@@ -39,13 +46,3 @@ services:
         value: "1200"
       - key: JOB_WORKERS
         value: "1"
-
-databases:
-  - name: repomap-db
-    plan: free
-    region: singapore
-    databaseName: repomap
-    user: repomap
-    # Reachable only from inside Render. The API is the only thing that needs
-    # it, and it connects over the private network.
-    ipAllowList: []
