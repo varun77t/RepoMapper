@@ -1,0 +1,51 @@
+# Render Blueprint: the API and its database.
+#
+# The frontend is not here -- it is a static bundle on Vercel. Only the part
+# that needs a filesystem, a git binary and a database lives on Render.
+#
+# Apply this from the Render dashboard: New > Blueprint, pick this repository.
+
+services:
+  - type: web
+    name: repomap-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./backend/Dockerfile
+    # The Dockerfile COPYs `requirements.txt` and `app/`, both relative to
+    # backend/, so the build context is backend/ and not the repository root.
+    dockerContext: ./backend
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: repomap-db
+          property: connectionString
+
+      # Render hands out a bare `postgresql://` URL; app/config.py rewrites it
+      # to name psycopg 3 explicitly. See Settings._use_psycopg3.
+
+      # The browser origin allowed to call this API. A value that does not
+      # match the deployed frontend exactly -- scheme included -- fails as an
+      # opaque CORS error with nothing in the server log.
+      - key: CORS_ORIGINS
+        value: https://repomap-varunhombalamath-gmailcoms-projects.vercel.app
+
+      # A free instance has 512 MB. Parsing holds every file's syntax tree in
+      # memory at once, so the repository-size ceiling comes down from the
+      # local default of 5000 and one analysis runs at a time.
+      - key: MAX_FILES
+        value: "1200"
+      - key: JOB_WORKERS
+        value: "1"
+
+databases:
+  - name: repomap-db
+    plan: free
+    region: singapore
+    databaseName: repomap
+    user: repomap
+    # Reachable only from inside Render. The API is the only thing that needs
+    # it, and it connects over the private network.
+    ipAllowList: []

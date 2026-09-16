@@ -1,6 +1,7 @@
 """Application settings, loaded from environment / .env."""
 from __future__ import annotations
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -37,6 +38,25 @@ class Settings(BaseSettings):
     # --- Phase 5 (not implemented this pass) ---
     enable_llm_summaries: bool = False
     gemini_api_key: str | None = None
+
+    @field_validator("database_url")
+    @classmethod
+    def _use_psycopg3(cls, url: str) -> str:
+        """Force the psycopg 3 driver onto a bare Postgres URL.
+
+        Managed hosts hand out `postgres://` or `postgresql://`, and SQLAlchemy
+        reads a bare `postgresql://` as "use psycopg2" -- which is not
+        installed, because this project pins psycopg 3. The failure is an
+        import error at engine construction, a long way from the environment
+        variable that caused it, so the scheme is corrected on the way in.
+
+        Left alone: sqlite, and any URL that already names its driver.
+        """
+        if url.startswith("postgres://"):
+            url = "postgresql://" + url[len("postgres://") :]
+        if url.startswith("postgresql://"):
+            url = "postgresql+psycopg://" + url[len("postgresql://") :]
+        return url
 
     @property
     def is_sqlite(self) -> bool:

@@ -168,6 +168,38 @@ class TestCorsSettings:
         assert settings.cors_origin_list == ["https://a.example", "https://b.example"]
 
 
+class TestDatabaseUrlDriver:
+    """Managed Postgres hands out a URL with no driver in it.
+
+    SQLAlchemy reads a bare `postgresql://` as psycopg2, which this project
+    does not install, so the deploy dies at import with a ModuleNotFoundError
+    naming a package nobody asked for.
+    """
+
+    def test_bare_postgres_scheme_gets_psycopg3(self):
+        from app.config import Settings
+
+        settings = Settings(database_url="postgres://u:p@host:5432/db")
+        assert settings.database_url == "postgresql+psycopg://u:p@host:5432/db"
+
+    def test_bare_postgresql_scheme_gets_psycopg3(self):
+        from app.config import Settings
+
+        settings = Settings(database_url="postgresql://u:p@host:5432/db")
+        assert settings.database_url == "postgresql+psycopg://u:p@host:5432/db"
+
+    def test_an_explicit_driver_is_left_alone(self):
+        from app.config import Settings
+
+        url = "postgresql+psycopg://u:p@host:5432/db"
+        assert Settings(database_url=url).database_url == url
+
+    def test_sqlite_is_left_alone(self):
+        from app.config import Settings
+
+        assert Settings(database_url="sqlite:///./x.db").database_url == "sqlite:///./x.db"
+
+
 class TestAnalyzeEndpoint:
     def test_returns_202_with_an_id(self, client):
         response = client.post("/analyze", json={"repo_url": "https://github.com/example/sample"})
