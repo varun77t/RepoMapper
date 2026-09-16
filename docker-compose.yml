@@ -1,0 +1,50 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-repomap}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-repomap}
+      POSTGRES_DB: ${POSTGRES_DB:-repomap}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-repomap} -d ${POSTGRES_DB:-repomap}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-repomap}:${POSTGRES_PASSWORD:-repomap}@postgres:5432/${POSTGRES_DB:-repomap}
+      MAX_FILES: ${MAX_FILES:-5000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
+      ENABLE_LLM_SUMMARIES: ${ENABLE_LLM_SUMMARIES:-false}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Jobs run in an in-process thread pool, so a second worker would not see
+    # the first worker's queue. Keep this at one until the queue moves out.
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Baked into the bundle at build time. The browser talks to the backend
+        # directly on the host, so this is the published port -- not the
+        # compose-internal hostname, which the browser cannot resolve.
+        VITE_API_BASE: http://localhost:${BACKEND_PORT:-8000}
+    ports:
+      # 3000 is already in the backend's CORS allowlist.
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

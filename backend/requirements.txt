@@ -1,0 +1,30 @@
+# --- Web ---
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.5
+pydantic-settings==2.7.1
+
+# --- Database ---
+SQLAlchemy==2.0.36
+psycopg[binary]==3.2.3
+
+# --- Repo ingestion ---
+GitPython==3.1.43
+
+# --- Graph engine ---
+networkx==3.4.2
+# nx.pagerank dispatches to a SciPy implementation; networkx does not declare
+# these itself, so pagerank raises ModuleNotFoundError without them.
+numpy==2.2.1
+scipy==1.15.0
+
+# --- Parsing -------------------------------------------------------------
+# PINNED AS A SET. Do not bump individually.
+# tree-sitter-typescript is stalled at 0.23.2 and requires tree-sitter~=0.23,
+# while tree-sitter-python/javascript 0.25.x require tree-sitter~=0.24.
+# tree-sitter is backwards- but NOT forwards-compatible on grammar ABI, and
+# 0.25 broke ABI v13/14. 0.23.x is the newest line where all four align.
+tree-sitter==0.23.2
+tree-sitter-python==0.23.6
+tree-sitter-javascript==0.23.1
+tree-sitter-typescript==0.23.2

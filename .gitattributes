@@ -1,0 +1,7 @@
+# Normalise line endings in the repository so a Windows clone does not hand
+# CRLF files to the Linux containers, where a CRLF Dockerfile or nginx.conf
+# fails in ways that are hard to read.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
